@@ -1,0 +1,128 @@
+---
+title: "RepresentativeSequences"
+author: "AnandVamsi"
+date: "2023-01-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(TraMineR)
+library(dplyr)
+library(readxl)
+library(tinytex)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntausers for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r cars}
+df_seq2 <- read.csv('ConcatSequenceW4W5.csv')
+df_seq2[df_seq2 == "exploring"] <- "Explore"
+df_seq2[df_seq2 == "viewdiscussions"] <- "Discuss"
+df_seq2[df_seq2 == "classify_mid"] <- "Classify_M"
+df_seq2[df_seq2 == "learning"] <- "Learn"
+df_seq2[df_seq2 == "personal"] <- "Personal"
+df_seq2[df_seq2 == "classify_high"] <- "Classify_H"
+df_seq2[df_seq2 == "classify_low"] <- "Classify_L"
+df_seq2[df_seq2 == "socialize"] <- "Social"
+#df_seq2[df_seq2 == "viewdiscussions"] <- "Discuss"
+df_seq2[df_seq2 == "communal"] <- "Communal"
+#df_seq2[df_seq2 == "communal_high"] <- "Communal_H"
+df_seq2[df_seq2 == "search"] <- "Explore"
+
+df_seq2 <- df_seq2[df_seq2$X != 608728,]
+df_seq2 <- df_seq2[df_seq2$X != 701454,]
+df_seq2 <- df_seq2[df_seq2$X != 46993,]
+df_seq2 <- df_seq2[df_seq2$X != 1559856,]
+df_seq2 <- df_seq2[df_seq2$X != 1507994,]
+df_seq2 <- df_seq2[df_seq2$X != 1507997,]
+df_seq2 <- df_seq2[df_seq2$X != 1509927,]
+df_seq2 <- df_seq2[df_seq2$X != 608728,]
+df_seq2 <- df_seq2[df_seq2$X1 != 0,]
+df_seq2 <- df_seq2[df_seq2$X1 != 'EOS',]
+```
+
+## Including Plots
+
+You can also embed plots, for eusersample:
+
+
+```{r}
+df_seq2[df_seq2 == 0 ] <- NA
+mycolors_1 = colors()[c(12,8,11,36,33,609,640,24,101,48)]
+```
+
+
+
+```{r}
+df_seq2_promoted <- df_seq2[df_seq2$X0 == 'Promoted',3:950]
+df_seq2_promoted.seq <- seqdef(df_seq2_promoted, method = 'OM', right="DEL",format = "SPS", cpal = mycolors_1)
+```
+
+
+```{r}
+df_seq2_Notpromoted <- df_seq2[df_seq2$X0 == 'NotPromoted',3:950]
+df_seq2_Notpromoted.seq <- seqdef(df_seq2_Notpromoted, method = 'OM', right="DEL",format = "SPS", cpal = mycolors_1)
+#3-100
+```
+
+
+```{r}
+seqlegend(df_seq2_Notpromoted.seq,cex = 0.5)
+```
+
+
+
+```{r}
+df_seq2.seqe <- seqecreate(df_seq2.seq)
+```
+
+
+```{r}
+fsubseq2 <- seqefsub(df_seq2.seqe, pmin.support = 0.08)
+```
+
+
+```{r}
+plot(fsubseq2)
+```
+
+
+```{r}
+cohort <- factor(df_seq2$X0=='NotPromoted', labels = c("Promoted", "NotPromoted"))
+```
+
+```{r}
+table(cohort)
+```
+
+
+
+
+
+
+
+```{r}
+costs_promoted <- seqsubm(df_seq2_promoted.seq, method="TRATE")
+df_seq2_promoted.om <- seqdist(df_seq2_promoted.seq, method="OM", sm=costs_promoted)
+df_seq2_promoted.rep <- seqrep(df_seq2_promoted.seq, diss=df_seq2_promoted.om, criterion="density")
+plot(df_seq2_promoted.rep[,1:50])
+```
+```{r}
+df_seq2_promoted.rep
+```
+
+
+
+```{r}
+costs_Notpromoted <- seqsubm(df_seq2_Notpromoted.seq, method="TRATE")
+df_seq2_Notpromoted.om <- seqdist(df_seq2_Notpromoted.seq, method="OM", sm=costs_Notpromoted)
+df_seq2_Notpromoted.rep <- seqrep(df_seq2_Notpromoted.seq, diss=df_seq2_Notpromoted.om, criterion="density")
+plot(df_seq2_Notpromoted.rep[,1:50])
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
