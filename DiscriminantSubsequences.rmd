@@ -1,0 +1,181 @@
+---
+title: "DiscriminantSequences"
+author: "AnandVamsi"
+date: "2023-01-05"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(TraMineR)
+library(dplyr)
+library(readxl)
+library(tinytex)
+library(TraMineRextras)
+```
+
+
+```{r setup, include=FALSE}
+df_seq1 <- read.csv('ConcatSequenceW2W3.csv')
+df_seq1[df_seq1 == "exploring"] <- "Explore"
+df_seq1[df_seq1 == "viewdiscussions"] <- "Discuss"
+df_seq1[df_seq1 == "classify_mid"] <- "Classify_M"
+df_seq1[df_seq1 == "learning"] <- "Learn"
+df_seq1[df_seq1 == "personal"] <- "Personal"
+df_seq1[df_seq1 == "classify_high"] <- "Classify_H"
+df_seq1[df_seq1 == "classify_low"] <- "Classify_L"
+df_seq1[df_seq1 == "socialize"] <- "Social"
+#df_seq1[df_seq1 == "viewdiscussions"] <- "Discuss"
+df_seq1[df_seq1 == "communal"] <- "Communal"
+#df_seq1[df_seq1 == "communal_high"] <- "Communal_H"
+df_seq1[df_seq1 == "search"] <- "Explore"
+
+df_seq1 <- df_seq1[df_seq1$X != 608728,]
+df_seq1 <- df_seq1[df_seq1$X != 701454,]
+df_seq1 <- df_seq1[df_seq1$X != 46993,]
+df_seq1 <- df_seq1[df_seq1$X != 1559856,]
+df_seq1 <- df_seq1[df_seq1$X != 1507994,]
+df_seq1 <- df_seq1[df_seq1$X != 1507997,]
+df_seq1 <- df_seq1[df_seq1$X != 1509927,]
+df_seq1 <- df_seq1[df_seq1$X != 608728,]
+df_seq1 <- df_seq1[df_seq1$X1 != 0,]
+```
+
+```{r}
+df_seq1_subset <- df_seq1[,3:10000]
+df_seq1_subset[df_seq1_subset == 0] <- NA
+df_seq1[df_seq1 == 0] <- NA
+```
+
+```{r}
+mycolors_1 = colors()[c(12,8,11,36,33,609,640,24,101,48)]
+#,609,640
+```
+
+
+```{r}
+df_seq1.seq <- seqdef(df_seq1[,3:25000], method = 'OM', right="DEL", cpal = mycolors_1)
+```
+```{r}
+df_seq1.sps = seqformat(df_seq1_subset, from = "STS", to = "SPS", compressed = TRUE)
+head(df_seq1.sps)
+```
+
+
+
+```{r}
+seqlegend(df_seq1.seq,cex = 0.5)
+```
+
+```{r}
+cohort_1 <- factor(df_seq1$X0=='NotPromoted', labels = c("Promoted", "NotPromoted"))
+```
+
+
+
+```{r}
+seqmtplot(df_seq1.seq, main = "Mean time", ylim = c(0,10), group = cohort_1)
+```
+
+
+```{r}
+df_seq1.seqe <- seqecreate(df_seq1.seq)
+```
+
+```{r}
+fsubseq <- seqefsub(df_seq1.seqe, pmin.support = 0.08)
+```
+
+```{r}
+fsubseq
+```
+
+
+
+```{r}
+plot(fsubseq[1:25], col = "cyan")
+```
+
+
+
+
+```{r}
+discrcohort <- seqecmpgroup(fsubseq, group = cohort_1, method = "bonferroni")
+```
+
+
+
+```{r}
+see <- data.frame(discrcohort$data)
+```
+
+```{r}
+#new = c("(Communal>%)","(Classify_H>%)","(EOS>Classify_L)","(Classify_H)","(Classify_H)-(Classify_H>%)","(Classify_L>%)","(Communal>Classify_M)","(Communal>Classify_L)","(Communal>Classify_H)","(Communal)","(Classify_M>%)","(Classify_L)","(Classify_M)","(Classify_M)-(Classify_M>Communal)","(Communal>Discuss)","(Classify_L>Communal)","(Classify_M)-(Classify_M>%)","(Discuss>Communal)","(Classify_M>Communal)","(Classify_H>Communal)","(Classify_H)-(Classify_H>Communal)")
+```
+
+```{r}
+library(arules)
+
+# Initialize a new vector of length 0
+Motif <- c()
+
+# Run a for loop on the seqelist object
+for (i in seq_along(discrcohort$subseq)) {
+  # Get the current transaction from the seqelist object
+  current_transaction <- discrcohort$subseq[[i]]
+  
+  Motif <- c(Motif, as.character(current_transaction))
+  }
+
+```
+
+
+```{r}
+see <- cbind(see, Motif)
+```
+
+
+```{r}
+
+# Define the keywords to search for
+keywords <- c('Explore', 'Discuss', 'Learn')
+
+# Filter the dataframe to only keep rows with the keywords in the text column
+filtered_see <- see[grepl(paste(keywords, collapse = '|'), see$Motif, ignore.case = TRUE), ]
+filtered_see <- filtered_see[filtered_see$p.value < 0.000005,]
+
+```
+
+
+
+```{r}
+write.csv(see,"C:/Users/anand/OneDrive - Syracuse University/Desktop/MotifAnalysis/RFiles/Workflow2_3/DiscriminantMotifs_W2W3.csv")
+```
+
+
+```{r}
+plot(discrcohort[12:25])
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
