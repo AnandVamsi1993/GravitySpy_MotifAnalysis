@@ -20,7 +20,8 @@ When you click the **Knit** button a document will be generated that includes bo
 
 
 ```{r cars}
-df_seq2 <- read.csv('ConcatSequenceW4W5.csv')
+#df_seq2 <- read.csv('ConcatSequenceW4W5.csv')
+df_seq2 <- read.csv('~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/ConcatSequenceW4W5.csv')
 df_seq2[df_seq2 == "exploring"] <- "Explore"
 df_seq2[df_seq2 == "viewdiscussions"] <- "Discuss"
 df_seq2[df_seq2 == "classify_mid"] <- "Classify_M"
