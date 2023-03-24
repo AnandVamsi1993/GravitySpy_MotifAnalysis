@@ -1,0 +1,265 @@
+---
+title: "Motif"
+author: "Corey Jackson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(stringi)
+library(lme4)
+library(performance)
+library(dplyr)
+library(tidyverse)
+library(scales)
+library(correlation) # Do by level
+library(broom)
+library(MuMIn)
+library(stargazer)
+library(sjPlot) #http://www.strengejacke.de/sjPlot/articles/sjtlm.html 
+library(sjmisc)
+library(sjlabelled)
+library(caret)
+
+#Functions
+logit2prob <- function(logit){
+  odds <- exp(logit)
+  prob <- odds / (1 + odds)
+  return(prob)
+}
+
+stargazer2 <- function(model, odd.ratio = F, ...) {
+  if(!("list" %in% class(model))) model <- list(model)
+    
+  if (odd.ratio) {
+    coefOR2 <- lapply(model, function(x) exp(coef(x)))
+    seOR2 <- lapply(model, function(x) exp(coef(x)) * summary(x)$coef[, 2])
+    p2 <- lapply(model, function(x) summary(x)$coefficients[, 4])
+    stargazer(model, coef = coefOR2, se = seOR2, p = p2, ...)
+    
+  } else {
+    stargazer(model, ...)
+  }
+}
+
+
+motifs <- data.table::fread("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/motifs-regression.csv")
+
+# transform datasets
+motifs$level <- as.numeric(stri_sub(motifs$Promotion_Level,-1,-1))
+motifs$level <- motifs$level-1
+motifs$prom <- stri_sub(motifs$Promotion_Level,1,1)
+motifs$promoted <- ifelse(motifs$prom=="N",0,1) 
+motifs$prom <- NULL 
+#motifs$Promotion_Level <- NULL 
+motifs <- motifs[which(motifs$level>0 & motifs$level < 5 & motifs$level !=0),]
+
+motifs <- motifs %>% 
+        dplyr::rename("Explore" = "exploring",
+               "Discuss-H" = "viewdiscussions_high",
+               "Classify-M" = "classify_mid",
+               "Learn" = "learning",
+               "Personal" = "personal",
+               "Classify-H" = "classify_high",
+               "Classify-L" = "classify_low",
+               "Social" = "socialize",
+               "Discuss-M" = "viewdiscussions_normal",
+               "Communal-M" = "communal_normal",
+               "Communal-H" = "communal_high"
+               )
+
+##### Correlation analysis https://statsandr.com/blog/correlation-coefficient-and-correlation-test-in-r/ 
+
+# Scale values
+motifs2 <- motifs %>% dplyr::summarise(across(c(19,3,5:7,9,10,12:16,18), scale))
+motifs3 <- motifs[,c(19,3,5:7,9,10,12:16,18)]
+motifs3 <- data.frame(motifs3)
+
+corr_table <- correlation(motifs3,
+  include_factors = TRUE, method = "auto")
+
+corr_table_level <- motifs3 %>%
+  group_by(level) %>%
+  group_modify(~ correlation(.x, include_factors = TRUE, method = "auto"))
+
+```
+
+## Correlation
+```{r correlations, include=FALSE}
+library(reshape2)
+library(gtsummary)
+ 
+motifs3[motifs3 == 0] <- NA
+motifs3.m <- melt(motifs3, id.vars="level")
+motifs3.m <- motifs3.m[which(motifs3.m$value!=0),]
+
+library(dplyr)
+activities <- motifs3.m %>%
+  filter(variable != "EOS") %>%
+  tbl_cross(
+    row = variable,
+    col = level,
+    percent = "cell"
+    ) 
+
+```
+
+```{r}
+activities
+```
+
+## Models 
+```{r models, include=FALSE, cache=TRUE, warning=FALSE}
+# Run regressions (which motifs predict promotion). Shoudl be mixed effects
+# https://stats.oarc.ucla.edu/r/dae/mixed-effects-logistic-regression/#:~:text=Mixed%20effects%20logistic%20regression%20is,both%20fixed%20and%20random%20effects or zero-inflated models (https://drizopoulos.github.io/GLMMadaptive/articles/ZeroInflated_and_TwoPart_Models.html)
+
+#https://fukamilab.github.io/BIO202/04-C-zero-data.html
+#https://stats.oarc.ucla.edu/r/dae/zinb/
+# https://www.r-bloggers.com/2018/06/bias-adjustment-for-rare-events-logistic-regression-in-r/ (TRY)
+
+motifs$userID <- as.factor(motifs$userID)
+motifs$level <- as.factor(motifs$level)
+
+M_all <- glmer(promoted ~ Explore + `Discuss-H` + `Classify-M` + Learn + Personal + `Classify-H` + Social + `Classify-L` + `Discuss-M` + `Communal-M`+ `Communal-H` + 
+    (1 | level) + (1 | userID), 
+    data = motifs, family = binomial, 
+    control = glmerControl(optimizer = "bobyqa"))
+MuMIn::r.squaredGLMM(M_all)
+
+#####################
+###### LEVEL 1 ###### 
+#####################
+motifs_l1 <- motifs[which(motifs$level=="1"),]
+
+trainIndex_l1 <- createDataPartition(motifs_l1$promoted, p = .7,
+                                  list = FALSE,
+                                  times = 1)
+train_l1 <- motifs_l1[ trainIndex_l1,]
+valid_l1 <- motifs_l1[-trainIndex_l1,]
+
+M1 <- glm(promoted ~ Explore + `Discuss-H` + `Classify-M` + Learn + Personal + `Classify-H` + Social + `Classify-L` + `Discuss-M` + `Communal-M`+ `Communal-H`, data = train_l1, family = "binomial")
+
+logit2prob(coef(M1))
+nagelkerke(M1) # performance 
+summary(M1)
+
+# compute odds ratio
+require(MASS)
+exp(cbind(coef(M1), confint(M1))) 
+
+predict_l1 <- predict(M1 , newdata = valid_l1, type = 'response')
+confusionMatrix(data = factor(as.numeric(predict_l1>0.5)), reference = factor(valid_l1$promoted))
+
+
+
+#####################
+###### LEVEL 2 ###### 
+#####################
+motifs_l2 <- motifs[which(motifs$level=="2"),]
+
+trainIndex_l2 <- createDataPartition(motifs_l2$promoted, p = .7,
+                                  list = FALSE,
+                                  times = 1)
+train_l2 <- motifs_l2[ trainIndex_l2,]
+valid_l2 <- motifs_l2[-trainIndex_l2,]
+
+M2 <- glm(promoted ~ Explore + `Discuss-H` + `Classify-M` + Learn + Personal + `Classify-H` + Social + `Classify-L` + `Discuss-M` + `Communal-M`+ `Communal-H`, data = train_l2, family = "binomial")
+
+logit2prob(coef(M2))
+nagelkerke(M2) # performance 
+summary(M2)
+
+# compute odds ratio
+require(MASS)
+exp(cbind(coef(M2), confint(M2))) 
+
+predict_l2 <- predict(M2 , newdata = valid_l2, type = 'response')
+confusionMatrix(data = factor(as.numeric(predict_l2>0.5)), reference = factor(valid_l2$promoted))
+
+
+#####################
+###### LEVEL 3 ###### 
+#####################
+motifs_l3 <- motifs[which(motifs$level=="3"),]
+
+trainIndex_l3 <- createDataPartition(motifs_l3$promoted, p = .7,
+                                  list = FALSE,
+                                  times = 1)
+train_l3 <- motifs_l3[ trainIndex_l3,]
+valid_l3 <- motifs_l3[-trainIndex_l3,]
+
+M3 <- glm(promoted ~ Explore + `Discuss-H` + `Classify-M` + Learn + Personal + `Classify-H` + Social + `Classify-L` + `Discuss-M` + `Communal-M`+ `Communal-H`, data = train_l3, family = "binomial")
+
+logit2prob(coef(M3))
+nagelkerke(M3) # performance 
+summary(M3)
+
+# compute odds ratio
+require(MASS)
+exp(cbind(coef(M3), confint(M3))) 
+
+predict_l3 <- predict(M3 , newdata = valid_l3, type = 'response')
+confusionMatrix(data = factor(as.numeric(predict_l3>0.5)), reference = factor(valid_l3$promoted))
+#####################
+###### LEVEL 4 ###### 
+#####################
+
+motifs_l4 <- motifs[which(motifs$level=="4"),]
+
+trainIndex_l4 <- createDataPartition(motifs_l4$promoted, p = .7,
+                                  list = FALSE,
+                                  times = 1)
+train_l4 <- motifs_l4[ trainIndex_l4,]
+valid_l4 <- motifs_l4[-trainIndex_l4,]
+
+M4 <- glm(promoted ~ Explore + `Discuss-H` + `Classify-M` + Learn + Personal + `Classify-H` + Social + `Classify-L` + `Discuss-M` + `Communal-M`+ `Communal-H`, data = train_l4, family = "binomial")
+
+logit2prob(coef(M4))
+nagelkerke(M4) # performance 
+summary(M4)
+
+# compute odds ratio
+require(MASS)
+exp(cbind(coef(M4), confint(M4))) 
+
+predict_l4 <- predict(M4 , newdata = valid_l4, type = 'response')
+confusionMatrix(data = factor(as.numeric(predict_l4>0.5)), reference = factor(valid_l4$promoted))
+
+
+
+# the coef. is interpreted as the expected change in log odds for a one-unit increase in variable. 
+#(exp(coef)-1)*100 to compute % decrease/increase in the odds of outcome, for a one-unit increase in independent variable
+# https://bookdown.org/kdonovan125/ibis_data_analysis_r4/introducing-r-and-rstudio.html 
+# https://www.jakeruss.com/cheatsheets/stargazer/
+
+```
+
+
+```{r models-report, results = "asis", echo=FALSE, include=FALSE}
+stargazer(M1,M2,M3,M4, type="html",font.size = "normalsize",
+          # ^  Notice M2 is called twice. I'm going somewhere with this.
+          # Below: manually supply tidied coefficients and standard errors
+          # Omit model statistics by default...
+    
+          #add.lines = lapply(1:nrow(mod_stats), function(i) unlist(mod_stats[i, ])),
+          covariate.labels = c("Explore","Discuss(H)","Classify(M)", "Learn", "Personal", "Classify(H)","Social","Classify(L)","Discuss(M)","Communal(M)","Communal(H)","Constant"),
+          notes="<small>Data: ESS, Round 9 (United Kingdom)</small>",
+          dep.var.labels="Promoted to Level",
+           model.names = FALSE,
+          omit.stat=c("f", "ser"),
+          column.sep.width = "-8pt",
+          single.row = TRUE,
+          column.labels = c("All Workflows", "Workflow 1", "Workflow 2","Workflow 3","Workflow 4")
+          )
+
+#R-Squared: `r MuMIn::r.squaredGLMM(M_all,null.RE = TRUE)`       
+
+```
+
+```{r model-report, warning=FALSE}
+# https://www.rdocumentation.org/packages/sjPlot/versions/2.8.4/topics/tab_model
+tab_model(M1,M2,M3,M4)
+
+```
+
