@@ -1,0 +1,177 @@
+---
+title: "Analysis of User SubSequences "
+author: "Corey Jackson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(tabula)
+library(gtsummary)
+
+userW1W2 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W1W2/Subsequences_Count_W1W2.csv")
+
+userW1W2 <- userW1W2[,-1]
+
+userW1W2 <- userW1W2 %>%
+  mutate(total_subsequeces = rowSums(.[1:21])) %>%
+  rowwise() %>% 
+  mutate(unique_subsequeces = 21- sum(c_across(1:21) == 0))
+  
+# Measure diversity of activities 
+## https://cran.r-project.org/web/packages/tabula/vignettes/diversity.html 
+userW1W2 <- data.frame(userW1W2)
+userW1W2$Status2 <- ifelse(userW1W2$Status=="Promoted",1,0)
+
+userW1W2$richness <- as.numeric(richness(userW1W2[1:21], method = "margalef")) 
+userW1W2_richness <- na.omit(userW1W2) 
+wilcox.test(userW1W2_richness$richness,userW1W2_richness$Status2)
+
+userW1W2$rarefaction <- as.numeric(composition(userW1W2[1:21], method = "chao1")) 
+userW1W2_rarefaction <- na.omit(userW1W2) 
+wilcox.test(userW1W2_rarefaction$rarefaction,userW1W2_rarefaction$Status2)
+
+userW1W2$workflow <- "W1W2"
+##################################################################
+
+userW2W3 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W2W3/Subsequences_Count_W2W3.csv")
+
+userW2W3 <- userW2W3[,-1]
+
+userW2W3 <- userW2W3 %>%
+  mutate(total_subsequeces = rowSums(.[1:42])) %>%
+  rowwise() %>% 
+  mutate(unique_subsequeces = 42 - sum(c_across(1:42) == 0))
+
+userW2W3 <- data.frame(userW2W3)
+userW2W3$Status2 <- ifelse(userW2W3$Status=="Promoted",1,0)
+
+userW2W3$richness <- as.numeric(richness(userW2W3[1:42], method = "margalef")) 
+userW2W3_richness <- na.omit(userW2W3) 
+wilcox.test(userW2W3_richness$richness,userW2W3_richness$Status2)
+
+userW2W3$rarefaction <- as.numeric(composition(userW2W3[1:42], method = "chao1")) 
+userW2W3_rarefaction <- na.omit(userW2W3) 
+wilcox.test(userW2W3_rarefaction$rarefaction,userW2W3_rarefaction$Status2)
+
+userW2W3$workflow <- "W2W3"
+##################################################################
+
+userW3W4 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W3W4/Subsequences_Count_W3W4.csv")
+
+userW3W4 <- userW3W4[,-1]
+
+userW3W4 <- userW3W4 %>%
+  mutate(total_subsequeces = rowSums(.[1:299])) %>%
+  rowwise() %>% 
+  mutate(unique_subsequeces = 299 - sum(c_across(1:299) == 0))
+
+userW3W4 <- data.frame(userW3W4)
+userW3W4$Status2 <- ifelse(userW3W4$Status=="Promoted",1,0)
+
+
+userW3W4$richness <- as.numeric(richness(userW3W4[1:299], method = "margalef")) 
+userW3W4_richness <- na.omit(userW3W4) 
+wilcox.test(userW3W4_richness$richness,userW3W4_richness$Status2)
+
+userW3W4$rarefaction <- as.numeric(composition(userW3W4[1:299], method = "chao1")) 
+userW3W4_rarefaction <- na.omit(userW3W4) 
+wilcox.test(userW3W4_rarefaction$rarefaction,userW3W4_rarefaction$Status2)
+
+userW3W4$workflow <- "W3W4"
+
+
+userworkflows <- rbind(userW1W2[,c(22:29)],userW2W3[,c(43:50)],userW3W4[,c(300:307)])
+userworkflows_differences <- na.omit(userworkflows)
+
+#Compute change in richness and rarefaction
+userworkflows <- userworkflows %>%
+    arrange(desc(user),workflow) %>%
+    group_by(user) %>%
+    mutate(diff_richness = richness - lag(richness),
+           diff_rarefaction = rarefaction - lag(rarefaction)
+           )
+
+
+W1W2_summary <-  userworkflows[,c(1,6,7,8)] %>%
+  filter(workflow=="W1W2") %>%
+  select(-workflow) %>%
+  tbl_summary(by = Status, 
+  statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>% 
+  add_p()
+
+W2W3_summary <-  userworkflows[,c(1,6,7,8)] %>%
+  filter(workflow=="W2W3") %>%
+  select(-workflow) %>%
+  tbl_summary(by = Status, 
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>%   add_p()
+
+W3W4_summary <-  userworkflows[,c(1,6,7,8)] %>%
+  filter(workflow=="W3W4") %>%
+  select(-workflow) %>%
+  tbl_summary(by = Status, 
+   statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>%   add_p()
+
+
+### DIfFERENCES
+userworkflows_differences <- na.omit(userworkflows)
+
+W2W3_diff <-  userworkflows_differences[,c(1,8:10)] %>%
+  filter(workflow=="W2W3") %>%
+  select(-workflow) %>%
+ tbl_summary(by = Status, 
+  statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>%  
+  add_p()
+
+W3W4_diff <-  userworkflows_differences[,c(1,8:10)] %>%
+  filter(workflow=="W3W4") %>%
+  select(-workflow) %>%
+  tbl_summary(by = Status, 
+  statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>%
+  add_p()
+```
+
+The higher the number of sequences present, the higher the sequence richness.
+
+## Sequence Richness
+
+The higher the number of sequences present, the higher the sequence richness.
+
+## Sequence Rarefaction
+
+A statistical technique used to compare the sequence richness of different samples that have been collected from different areas or at different times. It is used to estimate the expected number of sequence in a sample of a given size, based on the number of sequence found in a larger sample size. Rarefaction is a tool used to compare the relative richness of different samples, and to estimate the expected number of sequences in a smaller sample size
+
+```{r}
+W1W2_summary
+
+W2W3_summary
+
+W3W4_summary
+```
+
+### Changes in richness and rarefaction
+
+```{r}
+W2W3_diff
+
+W3W4_diff
+
+```
+
