@@ -83,7 +83,33 @@ wilcox.test(userW3W4_rarefaction$rarefaction,userW3W4_rarefaction$Status2)
 userW3W4$workflow <- "W3W4"
 
 
-userworkflows <- rbind(userW1W2[,c(22:29)],userW2W3[,c(43:50)],userW3W4[,c(300:307)])
+##################################################################
+userW4W5 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W4W5/Pt2_Threshold/Subsequences_Count_W4W5.csv")
+
+userW4W5 <- userW4W5[,-1]
+
+userW4W5 <- userW4W5 %>%
+  mutate(total_subsequeces = rowSums(.[1:257])) %>%
+  rowwise() %>% 
+  mutate(unique_subsequeces = 257 - sum(c_across(1:257) == 0))
+
+userW4W5 <- data.frame(userW4W5)
+userW4W5$Status2 <- ifelse(userW4W5$Status=="Promoted",1,0)
+
+
+userW4W5$richness <- as.numeric(richness(userW4W5[1:257], method = "margalef")) 
+userW4W5_richness <- na.omit(userW4W5) 
+wilcox.test(userW4W5_richness$richness,userW4W5_richness$Status2)
+
+userW4W5$rarefaction <- as.numeric(composition(userW4W5[1:257], method = "chao1")) 
+userW4W5_rarefaction <- na.omit(userW4W5) 
+wilcox.test(userW4W5_rarefaction$rarefaction,userW4W5_rarefaction$Status2)
+
+userW4W5$workflow <- "W4W5"
+
+### COMBINE
+
+userworkflows <- rbind(userW1W2[,c(22:29)],userW2W3[,c(43:50)],userW3W4[,c(300:307)],userW4W5[258:365])
 userworkflows_differences <- na.omit(userworkflows)
 
 #Compute change in richness and rarefaction
@@ -123,6 +149,14 @@ W3W4_summary <-  userworkflows[,c(1,6,7,8)] %>%
       all_categorical() ~ "{n} / {N} ({p}%)"
     )) %>%   add_p()
 
+W4W5_summary <-  userworkflows[,c(1,6,7,8)] %>%
+  filter(workflow=="W4W5") %>%
+  select(-workflow) %>%
+  tbl_summary(by = Status, 
+   statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>%   add_p()
 
 ### DIfFERENCES
 userworkflows_differences <- na.omit(userworkflows)
@@ -139,6 +173,16 @@ W2W3_diff <-  userworkflows_differences[,c(1,8:10)] %>%
 
 W3W4_diff <-  userworkflows_differences[,c(1,8:10)] %>%
   filter(workflow=="W3W4") %>%
+  select(-workflow) %>%
+  tbl_summary(by = Status, 
+  statistic = list(
+      all_continuous() ~ "{mean} ({sd},{median})",
+      all_categorical() ~ "{n} / {N} ({p}%)"
+    )) %>%
+  add_p()
+
+W4W5_diff <-  userworkflows_differences[,c(1,8:10)] %>%
+  filter(workflow=="W4W5") %>%
   select(-workflow) %>%
   tbl_summary(by = Status, 
   statistic = list(

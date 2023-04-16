@@ -1,0 +1,88 @@
+---
+title: "Subsequences_FrequencyCount"
+author: "AnandVamsi"
+date: "2023-04-14"
+output: html_document
+---
+
+```{r}
+library(TraMineR)
+library(dplyr)
+library(readxl)
+library(tinytex)
+library(TraMineRextras)
+```
+
+```{r}
+df_seq1 <- read.csv('ConcatSequenceW1W2.csv')
+df_seq1[df_seq1 == "exploring"] <- "Explore"
+df_seq1[df_seq1 == "viewdiscussions"] <- "Discuss"
+df_seq1[df_seq1 == "classify_mid"] <- "Classify_M"
+df_seq1[df_seq1 == "learning"] <- "Learn"
+df_seq1[df_seq1 == "personal"] <- "Personal"
+df_seq1[df_seq1 == "classify_high"] <- "Classify_H"
+df_seq1[df_seq1 == "classify_low"] <- "Classify_L"
+df_seq1[df_seq1 == "socialize"] <- "Social"
+#df_seq1[df_seq1 == "viewdiscussions"] <- "Discuss"
+df_seq1[df_seq1 == "communal"] <- "Communal"
+#df_seq1[df_seq1 == "communal_high"] <- "Communal_H"
+df_seq1[df_seq1 == "search"] <- "Explore"
+
+df_seq1 <- df_seq1[df_seq1$X != 608728,]
+df_seq1 <- df_seq1[df_seq1$X != 701454,]
+df_seq1 <- df_seq1[df_seq1$X != 46993,]
+df_seq1 <- df_seq1[df_seq1$X != 1559856,]
+df_seq1 <- df_seq1[df_seq1$X != 1507994,]
+df_seq1 <- df_seq1[df_seq1$X != 1507997,]
+df_seq1 <- df_seq1[df_seq1$X != 1509927,]
+df_seq1 <- df_seq1[df_seq1$X != 608728,]
+df_seq1 <- df_seq1[df_seq1$X1 != 0,]
+```
+
+```{r}
+df_seq1_subset <- df_seq1[,3:1000]
+df_seq1_subset[df_seq1_subset == 0] <- NA
+```
+
+```{r}
+mycolors_1 = colors()[c(12,8,11,36,33,609,640,24,101,48)]
+```
+
+
+
+```{r}
+df_seq1.seq <- seqdef(df_seq1_subset, method = 'OM', right="DEL", cpal = mycolors_1)
+```
+
+
+```{r}
+df_seq1.seqe <- seqecreate(df_seq1.seq)
+fsubseq <- seqefsub(df_seq1.seqe, pmin.support = 0.08)
+fsubseq
+```
+
+
+
+```{r}
+msubcount <- seqeapplysub(fsubseq, method = "count")
+```
+
+
+```{r}
+result <- as.data.frame(msubcount)
+```
+
+
+```{r}
+result$Status <- df_seq1$X0
+```
+
+```{r}
+result$user <- df_seq1$X
+```
+
+
+```{r}
+write.csv(msubcount, "Subsequences_Count_W1W2.csv")
+```
+
