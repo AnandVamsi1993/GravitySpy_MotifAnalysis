@@ -14,6 +14,8 @@ library(gtsummary)
 userW1W2 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W1W2/Subsequences_Count_W1W2.csv")
 
 userW1W2 <- userW1W2[,-1]
+userW1W2_org <- userW1W2
+
 
 userW1W2 <- userW1W2 %>%
   mutate(total_subsequeces = rowSums(.[1:21])) %>%
@@ -36,9 +38,10 @@ wilcox.test(userW1W2_rarefaction$rarefaction,userW1W2_rarefaction$Status2)
 userW1W2$workflow <- "W1W2"
 ##################################################################
 
-userW2W3 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W2W3/Subsequences_Count_W2W3.csv")
+userW2W3<- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W2W3/Subsequences_Count_W2W3.csv")
 
 userW2W3 <- userW2W3[,-1]
+userW2W3_org <- userW2W3
 
 userW2W3 <- userW2W3 %>%
   mutate(total_subsequeces = rowSums(.[1:42])) %>%
@@ -62,6 +65,7 @@ userW2W3$workflow <- "W2W3"
 userW3W4 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W3W4/Subsequences_Count_W3W4.csv")
 
 userW3W4 <- userW3W4[,-1]
+userW3W4_org <- userW3W4
 
 userW3W4 <- userW3W4 %>%
   mutate(total_subsequeces = rowSums(.[1:299])) %>%
@@ -87,6 +91,8 @@ userW3W4$workflow <- "W3W4"
 userW4W5 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W4W5/Pt2_Threshold/Subsequences_Count_W4W5.csv")
 
 userW4W5 <- userW4W5[,-1]
+userW4W5_org <- userW4W5
+
 
 userW4W5 <- userW4W5 %>%
   mutate(total_subsequeces = rowSums(.[1:256])) %>%
@@ -222,6 +228,153 @@ W2W3_diff
 W3W4_diff
 
 W4W5_diff
+
+```
+
+## Changes in user routines
+
+For each workflow identify which sequences are present
+
+
+```{r}
+library(reshape2)
+##########################################
+################## W1W2 ################## 
+##########################################
+userW1W2_activities <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W1W2/ConcatSequenceW1W2.csv")
+names(userW1W2_activities)[1:2] <- c("user","status")
+
+userW1W2_activities[, 3:dim(userW1W2_activities)[2]][userW1W2_activities[, 3:dim(userW1W2_activities)[2]] == 0] <- NA
+
+
+melt_userW1W2_activities <- melt(userW1W2_activities, id = c("user","status")) 
+remove(userW1W2_activities)
+
+userW1W2_activities <- melt_userW1W2_activities %>%
+  group_by(user, status, value) %>%
+  summarize(count = n())
+userW1W2_activities <- userW1W2_activities[which(!is.na(userW1W2_activities$value)),]
+userW1W2_activities$workflow <- "W1W2"
+remove(melt_userW1W2_activities)
+
+##########################################
+################## W2W3 ################## 
+##########################################
+
+userW2W3_activities <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W2W3/ConcatSequenceW2W3.csv")
+names(userW2W3_activities)[1:2] <- c("user","status")
+
+userW2W3_activities[, 3:dim(userW2W3_activities)[2]][userW2W3_activities[, 3:dim(userW2W3_activities)[2]] == 0] <- NA
+
+
+melt_userW2W3_activities <- melt(userW2W3_activities, id = c("user","status")) 
+remove(userW2W3_activities)
+
+userW2W3_activities <- melt_userW2W3_activities %>%
+  group_by(user, status, value) %>%
+  summarize(count = n())
+userW2W3_activities <- userW2W3_activities[which(!is.na(userW2W3_activities$value)),]
+userW2W3_activities$workflow <- "W2W3"
+remove(melt_userW2W3_activities)
+##########################################
+################## W3W4 ################## 
+##########################################
+
+userW3W4_activities <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W3W4//ConcatSequenceW3W4.csv")
+names(userW3W4_activities)[1:2] <- c("user","status")
+
+userW3W4_activities[, 3:dim(userW3W4_activities)[2]][userW3W4_activities[, 3:dim(userW3W4_activities)[2]] == 0] <- NA
+
+
+melt_userW3W4_activities <- melt(userW3W4_activities, id = c("user","status")) 
+remove(userW3W4_activities)
+
+userW3W4_activities <- melt_userW3W4_activities %>%
+  group_by(user, status, value) %>%
+  summarize(count = n())
+userW3W4_activities <- userW3W4_activities[which(!is.na(userW3W4_activities$value)),]
+userW3W4_activities$workflow <- "W3W4"
+remove(melt_userW3W4_activities)
+
+##########################################
+################## W4W5 ################## 
+##########################################
+
+userW4W5_activities <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W4W5/ConcatSequenceW4W5.csv")
+names(userW4W5_activities)[1:2] <- c("user","status")
+
+
+userW4W5_activities[, 3:dim(userW4W5_activities)[2]][userW4W5_activities[, 3:dim(userW4W5_activities)[2]] == 0] <- NA
+
+
+melt_userW4W5_activities <- melt(userW4W5_activities, id = c("user","status")) 
+remove(userW4W5_activities)
+
+userW4W5_activities <- melt_userW4W5_activities %>%
+  group_by(user, status, value) %>%
+  summarize(count = n())
+userW4W5_activities <- userW4W5_activities[which(!is.na(userW4W5_activities$value)),]
+userW4W5_activities$workflow <- "W4W5"
+remove(melt_userW4W5_activities)
+
+
+activities <-  rbind(userW1W2_activities,userW2W3_activities,userW3W4_activities,userW4W5_activities)
+#remove(w1_w2_activities,w2_w3_activities, w3_w4_activities,w4_w5_activities)
+
+library(tidyverse)
+spread_activities <- activities %>%
+  spread(value, count, fill = 0) 
+ spread_activities <- arrange(spread_activities, user, workflow)
+
+```
+
+
+```{r }
+# Sort the dataframe by user and level for accurate comparison
+spread_activities <- spread_activities[order(spread_activities$user, as.numeric(spread_activities$workflow)), ]
+
+spread_activities[, 4:14][spread_activities[, 4:14] >= 1] <- 1
+
+# Create a new dataframe to store the number of new activities
+new_activities <- data.frame(user = character(), level = character(), new_activities_count = integer(), activities = integer(), stringsAsFactors = FALSE)
+
+
+# Iterate over each user
+users <- unique(spread_activities$user)
+for (u in users) {
+  # Get the subset of data for the current user
+  user_data <- spread_activities[spread_activities$user == u, ]
+  # Iterate over each level for the current user
+  levels <- unique(user_data$workflow)
+  for (lvl in levels) {
+    
+    # Determine the new activities in the current level
+    current_level_data <- user_data[user_data$workflow == lvl, ]
+    previous_levels_data <- user_data[user_data$workflow < lvl, ]
+    
+    # Sum up data in previous_levels_data
+    sum <- colSums(previous_levels_data[-c(1:3)])
+    previous_activities <-  data.frame(column = names(previous_levels_data)[-c(1:3)], prev = sum)
+      
+    sums_cur <- colSums(current_level_data[-c(1:3)])
+      current_activities <-  data.frame(column = names(current_level_data)[-c(1:3)], curr = sums_cur)
+   
+      act_sum <- merge(previous_activities,current_activities, by="column")
+                                   
+    # Identify which columns have 0 in previous 
+    newact <- act_sum$column[which(act_sum$prev==0 & act_sum$curr==1)]
+    new_activities_count <- length(newact)
+    
+    new_activities <- rbind(new_activities, 
+                            data.frame(user = u, level = lvl, new_activities_count = new_activities_count, activities = paste(newact, collapse = ", "), stringsAsFactors = FALSE))
+  }
+}
+
+library(stringr)
+names(spread_activities)[3] <- "level"
+spread_activities <- merge(spread_activities,new_activities, by =c("user","level"))
+
+
 
 ```
 
