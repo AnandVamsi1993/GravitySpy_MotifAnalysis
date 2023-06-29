@@ -5,11 +5,16 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE, warning=FALSE}
+```{r setup, include=FALSE, warning=FALSE, cache=TRUE}
 library(readr)
 library(dplyr)
 library(tabula)
 library(gtsummary)
+library(ggpubr)
+library(reshape2)
+library(stringr)
+library(data.table)
+library(DT)
 
 userW1W2 <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W1W2/Subsequences_Count_W1W2.csv")
 
@@ -236,8 +241,8 @@ W4W5_diff
 For each workflow identify which sequences are present
 
 
-```{r}
-library(reshape2)
+```{r include=FALSE, warning=FALSE, cache=TRUE}
+
 ##########################################
 ################## W1W2 ################## 
 ##########################################
@@ -275,7 +280,7 @@ userW2W3_activities <- melt_userW2W3_activities %>%
   summarize(count = n())
 userW2W3_activities <- userW2W3_activities[which(!is.na(userW2W3_activities$value)),]
 userW2W3_activities$workflow <- "W2W3"
-remove(melt_userW2W3_activities)
+#remove(melt_userW2W3_activities)
 ##########################################
 ################## W3W4 ################## 
 ##########################################
@@ -317,9 +322,8 @@ userW4W5_activities <- userW4W5_activities[which(!is.na(userW4W5_activities$valu
 userW4W5_activities$workflow <- "W4W5"
 remove(melt_userW4W5_activities)
 
-
 activities <-  rbind(userW1W2_activities,userW2W3_activities,userW3W4_activities,userW4W5_activities)
-#remove(w1_w2_activities,w2_w3_activities, w3_w4_activities,w4_w5_activities)
+remove(w1_w2_activities,w2_w3_activities, w3_w4_activities,w4_w5_activities)
 
 library(tidyverse)
 spread_activities <- activities %>%
@@ -329,7 +333,7 @@ spread_activities <- activities %>%
 ```
 
 
-```{r }
+```{r include=FALSE, warning=FALSE, cache=TRUE}
 # Sort the dataframe by user and level for accurate comparison
 spread_activities <- spread_activities[order(spread_activities$user, as.numeric(spread_activities$workflow)), ]
 
@@ -370,11 +374,236 @@ for (u in users) {
   }
 }
 
-library(stringr)
+
 names(spread_activities)[3] <- "level"
 spread_activities <- merge(spread_activities,new_activities, by =c("user","level"))
 
 
+tbl <- 
+  spread_activities %>%
+  select(level, status, new_activities_count) %>%
+  tbl_strata(
+    strata = level,
+    ~.x %>%
+      tbl_summary(
+        by = status,
+        type = where(is.numeric) ~ "continuous"
+      ) %>%
+      modify_header(all_stat_cols() ~ "**{level}**")
+  )
+
+
+### BAR CHART SHOWING THE NUMBER OF AVERAGE NUMBER OF NEW ACTIVITIES
+
+### TABLE
+lvl_activity_table <- spread_activities %>% 
+                    group_by(level, status) %>% 
+                    summarise(new_activity =
+                                    mean(new_activities_count))
+
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE),
+      median = median(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+
+df2 <- data_summary(spread_activities, varname="new_activities_count", 
+                    groupnames=c("level", "status"))
+
+
+### VIZ
+library("ggsci")
+
+# https://cran.r-project.org/web/packages/ggsci/vignettes/ggsci.html 
+lvl_activity_table.viz <- ggplot(df2, aes(x=level, y=new_activities_count, fill=status)) + 
+  geom_bar(stat="identity", color="black", 
+           position=position_dodge()) +
+  geom_errorbar(aes(ymin=new_activities_count-sd, ymax=new_activities_count+sd), width=.2,
+                 position=position_dodge(.9)) + 
+  labs(x="Workflow", y = "New activities", fill='Status') +
+  theme_minimal() + 
+  scale_fill_jama() + 
+  theme(plot.title = element_text(size=12,face = "bold"),
+    legend.position = c(.8, .8),
+    legend.key.size = unit(1, 'cm'),
+        axis.text = element_text(size=15,face = "bold")
+       )
+
+# tests
+library(plyr)
+
+# Split df by "sex" and apply function to each subset of df. Returns a list of the return values.
+dlply(.data = spread_activities, .variables = "level", .fun = function(x) {
+  with(x, wilcox.test(new_activities_count~status))
+})
+
+detach("package:plyr")
+
+
+p <- ggboxplot(spread_activities, x = "status", y = "new_activities_count",
+          color = "status", palette = "jama",
+          facet.by = "level", short.panel.labs = TRUE) + 
+  labs(x="Workflow", y = "New activities", fill='Status') +
+  theme_minimal() + 
+  scale_fill_jama() + 
+  theme(plot.title = element_text(size=12,face = "bold"),
+    legend.position = "none",
+        axis.text = element_text(size=12,face = "bold")
+       )
+
+p <- p + stat_compare_means(method = "wilcox.test", label.x = 1.5, label.y = 9)
+
+#tiff("~/Desktop/Figure 3.tiff", units="cm", width = 30, height = 15, res=300)
+#lvl_activity_table.viz
+#dev.off()
+
+png("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/cscw-analysis/figures/Figure 3.png", width = 30, height = 15, units = 'cm', res = 300)
+lvl_activity_table.viz
+dev.off()
+
+png("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/cscw-analysis/figures/Figure 3_alt.png", width = 30, height = 15, units = 'cm', res = 300)
+p
+dev.off()
+```
+
+```{r}
+df2
+
+lvl_activity_table.viz
+
+p
+```
+
+
+```{r include=FALSE, warning=FALSE,cache=TRUE}
+### Get which activities as a percentage are people invovled in at each level
+
+# Extract user, status, and activities
+dataset <- data.frame(user = spread_activities$user,
+                      status = spread_activities$status,
+                      level = spread_activities$level,
+                      activities = spread_activities$activities)
+
+expanded_dataset <- do.call(rbind, lapply(seq_len(nrow(dataset)), function(i) {
+  activities <- strsplit(as.character(dataset$activities[i]), ",")[[1]]
+  data.frame(
+    user = rep(dataset$user[i], length(activities)),
+    status = rep(dataset$status[i], length(activities)),
+    level = rep(dataset$level[i], length(activities)),
+    activities = activities,
+    stringsAsFactors = FALSE
+  )
+}))
+
+library(dplyr)
+
+expanded_dataset$activities <- gsub("[[:space:]]", "", expanded_dataset$activities)
+
+activity_counts <- expanded_dataset %>%
+  dplyr::group_by(level, status, activities) %>%
+  dplyr::summarize(count = n_distinct(user)) %>%
+  dplyr::group_by(level, status) %>%
+  dplyr::mutate(total_users = sum(count),
+         percentage = count / total_users * 100)
+
+comparison <- activity_counts %>%
+  dplyr::ungroup() %>%
+  dplyr::group_by(level, activities) %>%
+  dplyr::summarize(prop_test = list(prop.test(count, total_users)))
+
+result_df <- comparison %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(statistic = sapply(prop_test, function(x) x$statistic),
+         p_value = sapply(prop_test, function(x) x$p.value)) %>%
+  dplyr::select(level, activities, statistic, p_value)
+
+```
+
+```{r}
+datatable(data = activity_counts, caption = "Workflow Activities", filter = "top")
+```
+
+
+```{r}
+datatable(data = result_df, caption = "Proportions Test", filter = "top")
+```
+
+###
+```{r}
+library(data.table)
+#### Granular sequences
+W1W2_geordi <- fread("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W1W2/ConcatSequenceW1W2.csv")
+
+# Melt data
+W1W2_geordi.m <- reshape2::melt(W1W2_geordi[-1,], id = c("V1","V2")) 
+W1W2_geordi.m <- W1W2_geordi.m[which(W1W2_geordi.m$value !="0"),]
+names(W1W2_geordi.m) <- c("user_id","status","order","action") 
+W1W2_geordi.m$order <- gsub("V","",W1W2_geordi.m$order)
+remove(W1W2_geordi)
+
+W1W2_geordi.usersummary <- W1W2_geordi.m %>%
+  select(user_id,status,action) %>%
+  group_by(user_id,status,action) %>%
+  tally()
+
+W2W3_geordi <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W2W3/ConcatSequenceW2W3.csv")
+
+# Melt data
+W2W3_geordi.m <- reshape2::melt(W2W3_geordi, id = c("...1","0")) 
+W2W3_geordi.m <- W2W3_geordi.m[which(W2W3_geordi.m$value != "0"),]
+names(W2W3_geordi.m) <- c("user_id","status","order","action") 
+W2W3_geordi.m$order <- gsub("V","",W2W3_geordi.m$order)
+remove(W2W3_geordi)
+
+W2W3_geordi.usersummary <- W2W3_geordi.m %>%
+  select(user_id,status,action) %>%
+  group_by(user_id,status,action) %>%
+  tally()
+
+W3W4_geordi <- fread("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W3W4/ConcatSequenceW3W4.csv")
+
+W3W4_geordi.m <- reshape2::melt(W3W4_geordi[-1,], id = c("V1","V2")) 
+W3W4_geordi.m <- W3W4_geordi.m[which(W3W4_geordi.m$value !="0"),]
+names(W3W4_geordi.m) <- c("user_id","status","order","action") 
+W3W4_geordi.m$order <- gsub("V","",W3W4_geordi.m$order)
+remove(W3W4_geordi)
+
+W3W4_geordi.usersummary <- W3W4_geordi.m %>%
+  select(user_id,status,action) %>%
+  group_by(user_id,status,action) %>%
+  tally()
+
+W4W5_geordi <- fread("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/SequenceBetweenLevels/W4W5/ConcatSequenceW4W5.csv")
+
+W4W5_geordi.m <- reshape2::melt(W4W5_geordi[-1,], id = c("V1","V2")) 
+W4W5_geordi.m <- W4W5_geordi.m[which(W4W5_geordi.m$value !="0"),]
+names(W4W5_geordi.m) <- c("user_id","status","order","action") 
+W4W5_geordi.m$order <- gsub("V","",W4W5_geordi.m$order)
+remove(W4W5_geordi)
+
+W4W5_geordi.usersummary <- W4W5_geordi.m %>%
+  select(user_id,status,action) %>%
+  group_by(user_id,status,action) %>%
+  tally()
+
+#### IMPORT GEORDI 
+geordi_coded <- fread("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/geordi/events-coded.csv")
+
+geordi_complete <- fread("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/data/geordi/geordi.csv")
+geordi_1_5_17 <- fread("~/Downloads/geordi-1-5-17.csv")
+
+#### IMPORT COMMENTS 
+comments <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/cscw-analysis/comments/gravity-spy-comments_2019-07-26.csv")
+#### IMPORT PERFORMANCE DATA FROM CLASSIFICATIONS
+user_performance <- read_csv("~/Library/CloudStorage/Box-Box/_research/traceGA/motif[collab]/cscw-analysis/user_performance.csv")
 
 ```
 
