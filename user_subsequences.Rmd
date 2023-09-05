@@ -325,11 +325,24 @@ remove(melt_userW4W5_activities)
 activities <-  rbind(userW1W2_activities,userW2W3_activities,userW3W4_activities,userW4W5_activities)
 remove(w1_w2_activities,w2_w3_activities, w3_w4_activities,w4_w5_activities)
 
+
+
 library(tidyverse)
 spread_activities <- activities %>%
   spread(value, count, fill = 0) 
  spread_activities <- arrange(spread_activities, user, workflow)
 
+activities_summary <-  activities %>%
+  group_by(workflow, status, value) %>%
+  summarize(users = n(),
+            actions = sum(count)) %>%
+  group_by(workflow,status) %>%
+  mutate(workflow_activity_percent = actions/sum(actions))  %>%
+  group_by(workflow, value) %>%
+  mutate(user_workflow_percent = users/sum(users))
+  
+ 
+ 
 ```
 
 
